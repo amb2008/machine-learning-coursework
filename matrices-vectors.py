@@ -1,5 +1,12 @@
 import numpy as np
 
+#laws of matrices
+# to multiple two matrices, the second one must have the same number of rows as the first has columns
+# you multiple the number in the column with the corresponding number in the next matrix's row
+# link to matrix multiplication source
+#https://miro.medium.com/v2/resize:fit:1400/1*YGcMQSr0ge_DGn96WnEkZw.png
+
+
 # vectors
 print("Vectors: ")
 v = np.array([1,5,2,9])
