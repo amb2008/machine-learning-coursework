@@ -91,6 +91,7 @@ ones_v = np.ones((x.shape[0], 1))
 X = np.hstack([ones_v, x.reshape((-1, 1))])
 
 # calculate weights with formula, creates [w0, w1]
+# formula = the (inverse of transposeX * X) * (transposeX * y)
 w = (np.linalg.inv(np.transpose(X)@X))@(np.transpose(X))@y
 print(w)
 
