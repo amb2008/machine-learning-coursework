@@ -1,0 +1,115 @@
+import tensorflow as tf
+from tensorflow.keras import datasets, layers, models, applications, regularizers
+from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPooling2D, BatchNormalization, Dropout, Resizing
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.utils import to_categorical
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from tensorflow.keras.callbacks import ModelCheckpoint
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+# Scale pixel values to be between 0 and 1
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+# make labels one-hot representation
+train_labels_one_hot = tf.one_hot(train_labels, 10)[:, 0, :]
+test_labels_one_hot = tf.one_hot(test_labels, 10)[:, 0, :]
+
+data_augmentation = tf.keras.Sequential([
+    layers.experimental.preprocessing.RandomFlip("horizontal"),
+    layers.experimental.preprocessing.RandomRotation(0.1),
+    layers.experimental.preprocessing.RandomZoom(0.1),
+])
+
+data_images = data_augmentation(train_images)
+train_images_concat = tf.concat([train_images, data_images], 0)
+train_labels_concat = tf.concat([train_labels_one_hot, train_labels_one_hot], 0)
+print(train_labels_one_hot.shape, train_labels_concat.shape)
+print(train_images.shape, train_images_concat.shape)
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+# MODEL 1 (DOES NOT WORK WELL)
+check_filepath = '/content/drive/My Drive/results/CIFAR3'
+checkpoint = ModelCheckpoint(
+    filepath = check_filepath,
+    save_best_only = True,
+    monitor = 'val_loss',
+    mode = 'min',
+    save_weights_only=True,
+
+)
+
+model = Sequential([
+  Conv2D(32, (3, 3), input_shape=(32, 32, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(32, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(32, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(64, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(64, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(64, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(128, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(128, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(256, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(256, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(512, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  tf.keras.layers.Dropout(0.1),
+  Conv2D(512, (3, 3)),
+  tf.keras.layers.BatchNormalization(),
+  tf.keras.layers.Activation(activation='relu'),
+
+  Flatten(),
+  Dense(512, activation="relu", kernel_regularizer=regularizers.L1L2(l1=1e-5, l2=1e-4)),
+  Dense(256, activation="relu", kernel_regularizer=regularizers.L1L2(l1=1e-5, l2=1e-4)),
+  Dense(128, activation="relu", kernel_regularizer=regularizers.L1L2(l1=1e-5, l2=1e-4)),
+  Dense(10, activation='softmax')
+])
+
+# compile and train
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+history = model.fit(train_images_concat, train_labels_concat, batch_size=128, epochs=35, workers=32, validation_data=(test_images, test_labels_one_hot), callbacks=checkpoint)
