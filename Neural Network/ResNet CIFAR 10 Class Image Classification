@@ -1,0 +1,98 @@
+# THIS MODEL GETS ~88.5% ACCURACY ON CIFAR10 DATA ON EPOCH 6. EACH EPOCH TAKES AROUND 12 MINUTES ON A GPU. RUN IN GOOGLE COLAB SO WEIGHTS CAN BE SAVED TO DRIVE.
+
+import tensorflow as tf
+from tensorflow.keras import datasets, layers, models, applications, regularizers
+from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPooling2D, BatchNormalization, Dropout, Resizing
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.utils import to_categorical
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from tensorflow.keras.callbacks import ModelCheckpoint
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+# Scale pixel values to be between 0 and 1
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+# make labels one-hot representation
+train_labels_one_hot = tf.one_hot(train_labels, 10)[:, 0, :]
+test_labels_one_hot = tf.one_hot(test_labels, 10)[:, 0, :]
+
+
+# AUGMENT DATA AND ADD TO DATASET FOR A MORE ROBUST TRAINING SET
+
+
+data_augmentation = tf.keras.Sequential([
+    layers.experimental.preprocessing.RandomFlip("horizontal"),
+    layers.experimental.preprocessing.RandomRotation(0.1),
+    layers.experimental.preprocessing.RandomZoom(0.1),
+])
+
+data_images = data_augmentation(train_images)
+train_images_concat = tf.concat([train_images, data_images], 0)
+train_labels_concat = tf.concat([train_labels_one_hot, train_labels_one_hot], 0)
+print(train_labels_one_hot.shape, train_labels_concat.shape)
+print(train_images.shape, train_images_concat.shape)
+
+
+# TRAIN MODEL AND SAVE WEIGHTS
+
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+# download base model ResNet
+base_model = applications.ResNet152V2(
+    weights='imagenet',  # Load weights pre-trained on the ImageNet dataset
+    input_shape=(224, 224, 3),
+    include_top=False)
+
+# define model
+model = Sequential()
+
+# resize images to fit resnet
+model.add(Resizing(224, 224))
+model.add(base_model)
+
+model.add(layers.GlobalAveragePooling2D())
+model.add(layers.Dense(512, activation='relu', kernel_regularizer=regularizers.L1L2(l1=1e-5, l2=1e-4)))
+model.add(layers.Dense(10, activation='softmax'))
+
+model.layers[1].trainable = False
+
+model.build(input_shape=(None, 32, 32, 3))
+
+# save results to drive
+check_filepath = '/content/drive/My Drive/results/CIFAR2'
+checkpoint = ModelCheckpoint(
+    filepath = check_filepath,
+    save_best_only = True,
+    monitor = 'val_loss',
+    mode = 'min',
+    save_weights_only=True,
+)
+
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+history = model.fit(train_images_concat, train_labels_concat, batch_size=128, epochs=14, workers=256, validation_data=(test_images, test_labels_one_hot), callbacks=checkpoint)
+
+
+# LOAD WEIGHTS
+
+check_filepath = '/content/drive/My Drive/results/CIFAR2'
+model.load_weights(check_filepath)
+y_hat = model.predict(test_images)
+
+y_hat_one_hot = np.zeros([10000, 10])
+for i in range(y_hat.shape[0]):
+  y_hat_one_hot[i][np.argmax(y_hat[i])] = 1
+
+m = tf.keras.metrics.CategoricalAccuracy()
+m.update_state(y_hat_one_hot, test_labels_one_hot)
+print(m.result().numpy())
+
+
+
+
+
